@@ -1,0 +1,50 @@
+schema: spec-driven
+version: "1.0"
+project: tokenwise
+initialized: "2026-07-17"
+
+context: |
+  Language: Rust (Cargo workspace, single static binary target)
+  Architecture: CLI/daemon — orchestrates RTK, MarkItDown, Headroom, ClawMem, Engram for Claude Code + Hermes
+  MVP commands: install, connect (claude|hermes), doctor, sync, stats
+  Platforms: macOS, Linux, Windows (cross-platform static binary)
+  CI: GitHub Actions
+  Repository: somarimapps/tokenwise
+
+testing:
+  strict_tdd: true
+  test_runner: cargo test
+  test_command: cargo test
+  coverage_command: cargo llvm-cov --html
+  lint_command: cargo clippy -- -D warnings
+  format_command: cargo fmt --check
+  type_check_command: cargo check
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Specify which MVP command(s) are in scope
+    - Note cross-platform impact when touching OS-specific paths or shell integration
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Reference the specific tokenwise command in each requirement
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Note Cargo crate boundaries and public API surface
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Flag cross-platform tasks explicitly
+  apply:
+    - Follow existing Rust idioms (error propagation with ?, thiserror/anyhow)
+    - Respect Cargo workspace structure
+    tdd: true
+    test_command: cargo test
+  verify:
+    test_command: cargo test
+    build_command: cargo build --release
+    coverage_threshold: 70
+  archive:
+    - Warn before merging destructive deltas

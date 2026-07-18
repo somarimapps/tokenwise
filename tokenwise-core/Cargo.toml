@@ -1,0 +1,20 @@
+[package]
+name = "tokenwise-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokenwise-common = { path = "../tokenwise-common" }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+which = "6"
+dirs = "5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+async-trait = "0.1"
+futures = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }

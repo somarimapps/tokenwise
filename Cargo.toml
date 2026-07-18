@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "tokenwise",
+    "tokenwise-core",
+    "tokenwise-common",
+    "adapter-claude",
+    "adapter-hermes",
+]
+resolver = "2"

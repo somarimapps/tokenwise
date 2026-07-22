@@ -2,14 +2,14 @@ use std::path::Path;
 
 use tokenwise_common::TokenwiseError;
 
-/// Writes the 5 mandatory tokenwise rule files to `~/.claude/rules/`.
+/// Writes the 6 mandatory tokenwise rule files to `~/.claude/rules/`.
 ///
 /// Creates the directory if it does not exist (idempotent).
 /// Files are overwritten with the latest canonical content on each run.
 pub struct RulesWriter;
 
 impl RulesWriter {
-    /// Ensure the rules directory exists and write all 5 rule files.
+    /// Ensure the rules directory exists and write all 6 rule files.
     pub fn write_all(&self, rules_dir: &Path) -> Result<(), TokenwiseError> {
         std::fs::create_dir_all(rules_dir)?;
 
@@ -21,7 +21,7 @@ impl RulesWriter {
     }
 }
 
-/// All 5 canonical rule file contents embedded at compile time.
+/// All 6 canonical rule file contents embedded at compile time.
 ///
 /// Content mirrors the rules that live in `~/.claude/rules/` on the user's
 /// machine. Updating these strings in a future release automatically updates
@@ -32,6 +32,7 @@ pub static RULE_FILES: &[(&str, &str)] = &[
     ("headroom-mandatory-guarantee.md", HEADROOM_MANDATORY_GUARANTEE),
     ("markitdown-mcp.md", MARKITDOWN_MCP),
     ("response-statusbar.md", RESPONSE_STATUSBAR),
+    ("code-file-optimization.md", CODE_FILE_OPTIMIZATION),
 ];
 
 const HEADROOM_PIPELINE: &str = r#"# Headroom + MarkItDown Pipeline — MANDATORY Global Rule
@@ -109,6 +110,43 @@ Append a one-line status footer to EVERY response:
 Footer is NOT optional. Always present, always one line.
 "#;
 
+const CODE_FILE_OPTIMIZATION: &str = r#"# Code & Text File Optimization — MANDATORY Global Rule
+
+## Purpose
+
+Minimize context cost when reading source code and plain-text files.
+Binary files are handled by MarkItDown. This rule covers .py, .ts, .js, .jsx, .tsx, .rs, .go,
+.json, .yaml, .yml, .txt, .md files larger than ~200 lines.
+
+## Pipeline by file type
+
+### Code files (.py .ts .js .jsx .tsx .rs .go .rb .java .cpp .c)
+
+NEVER read the full file first. Use Serena MCP in this order:
+1. `get_symbols_overview` — get the full symbol tree (functions, classes, exports)
+2. `find_declaration` or `find_symbol` — only if you need a specific symbol
+3. `Read` full file — ONLY if you need implementation details not available via Serena
+
+Savings: 70–90% fewer tokens vs reading the entire file.
+
+### Large structured files (.json .yaml .yml > 100 lines)
+
+1. Call `headroom_compress` on the content before processing
+2. Use `headroom_retrieve` for specific keys on demand
+
+### Plain text (.txt .md > 200 lines)
+
+1. Call `headroom_compress` on the content
+2. Use `headroom_retrieve` for specific sections on demand
+
+## Hard rule
+
+If a file is > 100 lines and is a code or structured text file:
+- Do NOT call Read as the first action
+- Use the appropriate tool above first
+- Justify in one line if you skip this rule
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,8 +175,8 @@ mod tests {
     }
 
     #[test]
-    fn writes_all_five_rule_files() {
-        let rules_dir = temp_rules_dir("five_files");
+    fn writes_all_six_rule_files() {
+        let rules_dir = temp_rules_dir("six_files");
         let writer = RulesWriter;
         writer.write_all(&rules_dir).unwrap();
 
@@ -148,6 +186,7 @@ mod tests {
             "headroom-mandatory-guarantee.md",
             "markitdown-mcp.md",
             "response-statusbar.md",
+            "code-file-optimization.md",
         ];
 
         for name in expected {

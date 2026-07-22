@@ -34,50 +34,41 @@ pub struct Component {
     pub install_cmd: &'static str,
 }
 
-/// The 9-component tokenwise stack.
+/// The tokenwise stack components.
 ///
 /// Order matters: prerequisite-safe install order is preserved.
 pub fn default_components() -> Vec<Component> {
+    let is_mac = matches!(Platform::current(), Ok(Platform::MacOS));
+
     vec![
         Component {
             name: "RTK",
             probe: "rtk",
-            install_cmd: "cargo install rtk",
+            install_cmd: if is_mac {
+                "brew install rtk"
+            } else {
+                "curl -fsSL https://raw.githubusercontent.com/reachingforthejack/rtk/main/install.sh | bash"
+            },
         },
         Component {
             name: "Headroom proxy",
             probe: "headroom",
-            install_cmd: "pip3 install headroom",
+            install_cmd: "pip3 install --user headroom || pipx install headroom",
         },
         Component {
             name: "MarkItDown",
             probe: "markitdown",
-            install_cmd: "pip3 install 'markitdown[all]'",
+            install_cmd: "pip3 install --user 'markitdown[all]' || pipx install 'markitdown[all]'",
         },
         Component {
-            name: "ClawMem",
+            name: "ClawMem MCP",
             probe: "clawmem",
-            install_cmd: "pip3 install clawmem-mcp",
-        },
-        Component {
-            name: "Engram MCP",
-            probe: "engram",
-            install_cmd: "npm install -g @anthropic/engram",
-        },
-        Component {
-            name: "Serena",
-            probe: "serena",
-            install_cmd: "pip3 install serena",
+            install_cmd: "pip3 install --user clawmem-mcp || pipx install clawmem-mcp",
         },
         Component {
             name: "codebase-memory-mcp",
-            probe: "codebase-memory-mcp",
+            probe: "npx",
             install_cmd: "npm install -g codebase-memory-mcp",
-        },
-        Component {
-            name: "mcp-registry-server",
-            probe: "mcp-registry-server",
-            install_cmd: "npm install -g mcp-registry-server",
         },
         Component {
             name: "Headroom LaunchAgent",

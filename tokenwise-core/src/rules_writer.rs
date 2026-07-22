@@ -116,28 +116,56 @@ const CODE_FILE_OPTIMIZATION: &str = r#"# Code & Text File Optimization — MAND
 
 Minimize context cost when reading source code and plain-text files.
 Binary files are handled by MarkItDown. This rule covers .py, .ts, .js, .jsx, .tsx, .rs, .go,
-.json, .yaml, .yml, .txt, .md files larger than ~200 lines.
+.json, .yaml, .yml, .txt, .md files larger than ~200 lines,
+and .xlsx, .csv data files with more than 500 rows.
 
 ## Pipeline by file type
 
 ### Code files (.py .ts .js .jsx .tsx .rs .go .rb .java .cpp .c)
 
 NEVER read the full file first. Use Serena MCP in this order:
-1. `get_symbols_overview` — get the full symbol tree (functions, classes, exports)
-2. `find_declaration` or `find_symbol` — only if you need a specific symbol
-3. `Read` full file — ONLY if you need implementation details not available via Serena
+1. get_symbols_overview — get the full symbol tree (functions, classes, exports)
+2. find_declaration or find_symbol — only if you need a specific symbol
+3. Read full file — ONLY if you need implementation details not available via Serena
 
-Savings: 70–90% fewer tokens vs reading the entire file.
+Savings: 70-90% fewer tokens vs reading the entire file.
 
 ### Large structured files (.json .yaml .yml > 100 lines)
 
-1. Call `headroom_compress` on the content before processing
-2. Use `headroom_retrieve` for specific keys on demand
+1. Call headroom_compress on the content before processing
+2. Use headroom_retrieve for specific keys on demand
 
 ### Plain text (.txt .md > 200 lines)
 
-1. Call `headroom_compress` on the content
-2. Use `headroom_retrieve` for specific sections on demand
+1. Call headroom_compress on the content
+2. Use headroom_retrieve for specific sections on demand
+
+### Data files (.xlsx .csv .tsv > 500 rows) — LAZY LOAD PROTOCOL
+
+NEVER load the full file into context. Use this 3-step protocol:
+
+Step 1 — Get structure only (~200 tokens):
+python3 -c "
+import pandas as pd
+df = pd.read_excel('file.xlsx')
+print(f'Shape: {df.shape}')
+print(f'Columns: {list(df.columns)}')
+print(df.head(3).to_markdown())
+"
+
+Step 2 — Filter to what the user needs:
+python3 -c "
+import pandas as pd
+df = pd.read_excel('file.xlsx')
+subset = df[df['ETA'].str.contains('2026', na=False)]
+print(f'{len(subset)} rows matched of {len(df)} total')
+print(subset[['col1','col2','col3']].to_markdown())
+"
+
+Step 3 — If full scan needed, compress first:
+Convert with MarkItDown, then call headroom_compress, then use headroom_retrieve for specific data.
+
+Savings: 95-99% vs loading the full file (174,000 tokens down to 2,000-8,000 tokens).
 
 ## Hard rule
 
@@ -145,6 +173,10 @@ If a file is > 100 lines and is a code or structured text file:
 - Do NOT call Read as the first action
 - Use the appropriate tool above first
 - Justify in one line if you skip this rule
+
+If a file is .xlsx/.csv with more than 500 rows:
+- NEVER load the full content
+- Always start with Step 1 (structure only)
 "#;
 
 #[cfg(test)]

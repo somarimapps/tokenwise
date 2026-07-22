@@ -126,27 +126,28 @@ impl StatsAggregator {
         .flatten()
     }
 
-    /// Query ClawMem doc count via `clawmem status --json`.
+    /// Query ClawMem doc count via `clawmem status`.
     ///
-    /// Returns `None` if ClawMem is not installed or the output cannot be parsed.
+    /// Parses the `Documents: N` line from text output.
+    /// Returns `None` if ClawMem is not installed or the line cannot be found.
     async fn clawmem_doc_count() -> Option<u64> {
         tokio::task::spawn_blocking(|| {
-            #[derive(Deserialize)]
-            struct ClawmemStatus {
-                docs: Option<u64>,
-            }
-
-            let output = Command::new("clawmem")
-                .args(["status", "--json"])
-                .output()
-                .ok()?;
+            let output = Command::new("clawmem").arg("status").output().ok()?;
 
             if !output.status.success() {
                 return None;
             }
 
-            let parsed: ClawmemStatus = serde_json::from_slice(&output.stdout).ok()?;
-            parsed.docs
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let trimmed = line.trim();
+                if let Some(rest) = trimmed.strip_prefix("Documents:") {
+                    if let Ok(n) = rest.trim().parse::<u64>() {
+                        return Some(n);
+                    }
+                }
+            }
+            None
         })
         .await
         .ok()

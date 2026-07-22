@@ -35,6 +35,7 @@ irm https://raw.githubusercontent.com/somarimapps/tokenwise/main/scripts/install
 ```bash
 tokenwise install          # one-time setup
 tokenwise connect claude   # wire Claude Code (MCP servers, hooks, rules, env)
+tokenwise connect hermes   # wire Hermes agent (if installed)
 tokenwise doctor           # verify all 10 layers are green
 ```
 

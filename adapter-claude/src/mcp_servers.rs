@@ -21,10 +21,10 @@ pub fn core_mcp_servers() -> HashMap<String, McpServerConfig> {
         McpServerConfig::stdio("headroom", vec!["mcp".to_string()]),
     );
 
-    // clawmem — semantic memory vault
+    // clawmem — semantic memory vault (Node/bun binary, installed via npm/bun)
     map.insert(
         "clawmem".to_string(),
-        McpServerConfig::stdio("python3", vec!["-m".to_string(), "clawmem_mcp".to_string()]),
+        McpServerConfig::stdio("clawmem", vec!["mcp".to_string()]),
     );
 
     // engram — structured persistent memory
@@ -40,22 +40,29 @@ pub fn core_mcp_servers() -> HashMap<String, McpServerConfig> {
         ),
     );
 
-    // serena — code intelligence / LSP bridge
+    // serena — code intelligence / LSP bridge (installed via uvx from GitHub)
     map.insert(
         "serena".to_string(),
-        McpServerConfig::stdio("python3", vec!["-m".to_string(), "serena".to_string()]),
+        McpServerConfig::stdio(
+            "uvx",
+            vec![
+                "--from".to_string(),
+                "git+https://github.com/oraios/serena".to_string(),
+                "serena".to_string(),
+                "start-mcp-server".to_string(),
+                "--project-from-cwd".to_string(),
+                "--context".to_string(),
+                "claude-code".to_string(),
+                "--open-web-dashboard".to_string(),
+                "False".to_string(),
+            ],
+        ),
     );
 
     // codebase-memory-mcp — graph-based code memory
     map.insert(
         "codebase-memory-mcp".to_string(),
         McpServerConfig::stdio("npx", vec!["-y".to_string(), "codebase-memory-mcp".to_string()]),
-    );
-
-    // mcp-registry — MCP registry / discovery
-    map.insert(
-        "mcp-registry".to_string(),
-        McpServerConfig::stdio("npx", vec!["-y".to_string(), "mcp-registry-server".to_string()]),
     );
 
     map
@@ -103,8 +110,8 @@ mod tests {
     }
 
     #[test]
-    fn core_servers_has_exactly_seven_entries() {
-        assert_eq!(core_mcp_servers().len(), 7);
+    fn core_servers_has_exactly_six_entries() {
+        assert_eq!(core_mcp_servers().len(), 6);
     }
 
     #[test]

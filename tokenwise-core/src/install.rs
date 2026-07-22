@@ -63,7 +63,7 @@ pub fn default_components() -> Vec<Component> {
         Component {
             name: "ClawMem MCP",
             probe: "clawmem",
-            install_cmd: "pip3 install --user clawmem-mcp || pipx install clawmem-mcp",
+            install_cmd: "bun add -g clawmem || npm install -g clawmem",
         },
         Component {
             name: "codebase-memory-mcp",

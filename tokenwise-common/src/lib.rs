@@ -10,7 +10,7 @@ pub use exit_code::ExitCode;
 pub use output::{format_message, print_error, print_info, print_warn, Level};
 pub use platform::Platform;
 
-/// Names of the 7 core MCP servers that tokenwise manages.
+/// Names of the 6 core MCP servers that tokenwise manages.
 pub const CORE_MCP_SERVER_NAMES: &[&str] = &[
     "markitdown",
     "headroom",
@@ -18,17 +18,17 @@ pub const CORE_MCP_SERVER_NAMES: &[&str] = &[
     "engram",
     "serena",
     "codebase-memory-mcp",
-    "mcp-registry",
 ];
 
 /// Names of the optional MCP servers (registered on request).
 pub const OPTIONAL_MCP_SERVER_NAMES: &[&str] = &["odoo-customext", "shopify"];
 
-/// Names of the 5 required rules files in `~/.claude/rules/`.
+/// Names of the 6 required rules files in `~/.claude/rules/`.
 pub const REQUIRED_RULES_FILES: &[&str] = &[
     "headroom-pipeline.md",
     "unified-optimization-pipeline.md",
     "headroom-mandatory-guarantee.md",
     "markitdown-mcp.md",
     "response-statusbar.md",
+    "code-file-optimization.md",
 ];

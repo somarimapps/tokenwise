@@ -80,6 +80,10 @@ impl ClaudeConnector {
             // Always (re)set ANTHROPIC_BASE_URL — it's a no-op if already correct.
             SettingsManager::set_anthropic_base_url(s, HEADROOM_BASE_URL);
 
+            // Always remove legacy "rtk hook claude" entries — they predate tokenwise
+            // and duplicate the new hook when both coexist.
+            Self::remove_legacy_rtk_hooks(s);
+
             // Only inject hooks if the tokenwise marker is not already present.
             if !Self::has_tokenwise_hooks(s) {
                 Self::merge_rtk_hooks(s, &rtk_path);
@@ -154,6 +158,41 @@ impl ClaudeConnector {
         if let Value::Array(arr) = session_start {
             arr.push(json!({ "hooks": [session_hook] }));
         }
+    }
+
+    /// Remove pre-tokenwise `"rtk hook claude"` entries from `PreToolUse`.
+    ///
+    /// The legacy hook was a flat array entry:
+    /// `{"command": "rtk hook claude", "type": "command", "matcher": "Bash"}`
+    ///
+    /// Tokenwise's own hook uses the nested format with `"marker": "tokenwise"`, so
+    /// removing the legacy entry is always safe and idempotent.
+    fn remove_legacy_rtk_hooks(settings: &mut ClaudeSettings) {
+        let hooks = match settings.hooks.as_mut().and_then(Value::as_object_mut) {
+            Some(h) => h,
+            None => return,
+        };
+        let pre_tool_use = match hooks.get_mut("PreToolUse").and_then(Value::as_array_mut) {
+            Some(a) => a,
+            None => return,
+        };
+        pre_tool_use.retain(|entry| !Self::entry_has_command(entry, "rtk hook claude"));
+    }
+
+    /// Returns true when `entry` (a hook array item) contains `cmd` as its command.
+    ///
+    /// Handles both flat format `{"command": "..."}` and nested format
+    /// `{"hooks": [{"command": "..."}]}`.
+    fn entry_has_command(entry: &Value, cmd: &str) -> bool {
+        if entry.get("command").and_then(Value::as_str) == Some(cmd) {
+            return true;
+        }
+        if let Some(hooks) = entry.get("hooks").and_then(Value::as_array) {
+            return hooks
+                .iter()
+                .any(|h| h.get("command").and_then(Value::as_str) == Some(cmd));
+        }
+        false
     }
 
     /// Resolve the canonical RTK binary path.
@@ -317,6 +356,70 @@ mod tests {
         assert_eq!(
             mcp_first, mcp_second,
             ".claude.json must be byte-equal after second connect"
+        );
+
+        fs::remove_dir_all(&base).ok();
+    }
+
+    /// test::connect_claude::removes_legacy_rtk_hook_claude_on_connect
+    #[test]
+    fn removes_legacy_rtk_hook_claude_on_connect() {
+        let (base, claude_dir, claude_json, backup_dir) = setup("remove_legacy");
+        fs::create_dir_all(&claude_dir).unwrap();
+        // Simulate a settings.json that already has the legacy "rtk hook claude" entry.
+        fs::write(
+            claude_dir.join("settings.json"),
+            r#"{
+                "hooks": {
+                    "PreToolUse": [
+                        {"matcher": "Bash", "hooks": [{"type": "command", "command": "rtk hook claude"}]}
+                    ]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let conn = make_connector(claude_dir.clone(), claude_json, backup_dir);
+        conn.connect(false).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        assert!(
+            !content.contains("rtk hook claude"),
+            "Legacy 'rtk hook claude' hook must be removed on connect: {content}"
+        );
+        assert!(
+            content.contains("tokenwise"),
+            "Tokenwise marker must be present after connect: {content}"
+        );
+
+        fs::remove_dir_all(&base).ok();
+    }
+
+    /// test::connect_claude::legacy_hook_flat_format_also_removed
+    #[test]
+    fn legacy_hook_flat_format_also_removed() {
+        let (base, claude_dir, claude_json, backup_dir) = setup("remove_legacy_flat");
+        fs::create_dir_all(&claude_dir).unwrap();
+        // Flat format (no nested "hooks" array): {"command": "rtk hook claude", "matcher": "Bash"}
+        fs::write(
+            claude_dir.join("settings.json"),
+            r#"{
+                "hooks": {
+                    "PreToolUse": [
+                        {"command": "rtk hook claude", "type": "command", "matcher": "Bash"}
+                    ]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let conn = make_connector(claude_dir.clone(), claude_json, backup_dir);
+        conn.connect(false).unwrap();
+
+        let content = fs::read_to_string(claude_dir.join("settings.json")).unwrap();
+        assert!(
+            !content.contains("rtk hook claude"),
+            "Flat-format legacy hook must also be removed: {content}"
         );
 
         fs::remove_dir_all(&base).ok();

@@ -167,15 +167,18 @@ impl Installer {
             summary.push((component.name.to_string(), status));
         }
 
-        // 4. Service registration (unless skipped in tests).
-        if !self.config.skip_service {
+        // 4. Service registration (unless skipped in tests or headroom already owns the port).
+        // Skip when headroom already occupies port 8788 — an existing service (e.g.
+        // com.headroom.proxy.plist from a native Headroom install) is already running.
+        if !self.config.skip_service && !headroom_owns_port {
             let sm = create_service_manager();
             let headroom_path = which_bin("headroom").unwrap_or("/usr/local/bin/headroom".to_string());
             let svc_config = ServiceConfig {
                 name: "com.tokenwise.headroom".to_string(),
                 description: "Tokenwise Headroom token compression proxy".to_string(),
                 executable: headroom_path,
-                args: vec!["--port".to_string(), self.config.headroom_port.to_string()],
+                // headroom requires the `proxy` subcommand: `headroom proxy --port 8788`
+                args: vec!["proxy".to_string(), "--port".to_string(), self.config.headroom_port.to_string()],
             };
             if let Err(e) = sm.install(&svc_config).await {
                 summary.push((
@@ -185,6 +188,8 @@ impl Installer {
             } else {
                 summary.push(("Headroom service".to_string(), ComponentStatus::Installed));
             }
+        } else if headroom_owns_port {
+            summary.push(("Headroom service".to_string(), ComponentStatus::Skipped));
         }
 
         Ok(summary)

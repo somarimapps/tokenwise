@@ -33,8 +33,7 @@ irm https://raw.githubusercontent.com/somarimapps/tokenwise/main/scripts/install
 ## Quick start
 
 ```bash
-tokenwise install          # one-time setup
-tokenwise connect claude   # wire Claude Code (MCP servers, hooks, rules, env)
+tokenwise install          # one-time setup — installs stack AND wires Claude Code automatically
 tokenwise connect hermes   # wire Hermes agent (if installed)
 tokenwise doctor           # verify all 10 layers are green
 ```

@@ -254,7 +254,7 @@ pub async fn reload_headroom_if_changed(
             return false;
         }
 
-        let changed = _previous_plist_path.map_or(true, |prev| prev != plist_path);
+        let changed = _previous_plist_path != Some(plist_path);
         if !changed {
             return false;
         }
@@ -264,7 +264,7 @@ pub async fn reload_headroom_if_changed(
             .output()
             .await;
 
-        return result.map(|o| o.status.success()).unwrap_or(false);
+        result.map(|o| o.status.success()).unwrap_or(false)
     }
 
     #[cfg(not(target_os = "macos"))]

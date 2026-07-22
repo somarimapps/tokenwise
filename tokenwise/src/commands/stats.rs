@@ -5,7 +5,7 @@ use tokenwise_core::stats::StatsAggregator;
 pub async fn run() -> Result<(), ExitCode> {
     let result = StatsAggregator::collect().await;
 
-    println!("{:<30} {}", "Layer", "Value");
+    println!("{:<30} Value", "Layer");
     println!("{}", "─".repeat(50));
 
     let headroom = result

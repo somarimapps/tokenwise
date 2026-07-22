@@ -123,6 +123,12 @@ pub struct Installer {
     pub config: InstallerConfig,
 }
 
+impl Default for Installer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Installer {
     pub fn new() -> Self {
         Self {
@@ -281,7 +287,7 @@ impl Installer {
     /// Called by the CLI command after `run()` returns.
     pub fn print_summary(summary: &[(String, ComponentStatus)]) {
         println!("\nTokenwise installation summary:");
-        println!("{:<30} {}", "Component", "Status");
+        println!("{:<30} Status", "Component");
         println!("{}", "─".repeat(55));
         for (name, status) in summary {
             println!("{:<30} {}", name, status);

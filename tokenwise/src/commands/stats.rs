@@ -5,33 +5,43 @@ use tokenwise_core::stats::StatsAggregator;
 pub async fn run() -> Result<(), ExitCode> {
     let result = StatsAggregator::collect().await;
 
-    println!("{:<30} Value", "Layer");
-    println!("{}", "─".repeat(50));
+    println!("{:<30} {}", "Layer", "Value");
+    println!("{}", "─".repeat(60));
 
     let headroom = result
         .headroom_pct
-        .map(|p| format!("{p:.1}%"))
-        .unwrap_or_else(|| "—".to_string());
+        .map(|p| format!("{p:.1}% (proxy active on :8788)"))
+        .unwrap_or_else(|| "— (proxy not active or using plugin)".to_string());
     println!("{:<30} {}", "Headroom savings", headroom);
 
-    let rtk = result
-        .rtk_calls
-        .map(|c| c.to_string())
-        .unwrap_or_else(|| "—".to_string());
-    println!("{:<30} {}", "RTK proxy calls", rtk);
+    let rtk = match (result.rtk_calls, result.rtk_tokens_saved, result.rtk_savings_pct) {
+        (Some(calls), Some(saved), Some(pct)) => {
+            let saved_m = saved as f64 / 1_000_000.0;
+            format!("{calls} commands  |  {saved_m:.2}M tokens saved  ({pct:.1}%)")
+        }
+        _ => "— (rtk not installed)".to_string(),
+    };
+    println!("{:<30} {}", "RTK (CLI layer)", rtk);
 
     let clawmem = result
         .clawmem_docs
-        .map(|d| d.to_string())
-        .unwrap_or_else(|| "—".to_string());
-    println!("{:<30} {}", "ClawMem docs", clawmem);
+        .map(|d| format!("{d} docs in vault"))
+        .unwrap_or_else(|| "— (clawmem not installed)".to_string());
+    println!("{:<30} {}", "ClawMem", clawmem);
+
+    println!("{}", "─".repeat(60));
 
     let total = result
         .total_estimated_savings_pct
-        .map(|p| format!("{p:.1}%"))
-        .unwrap_or_else(|| "—".to_string());
-    println!("{}", "─".repeat(50));
-    println!("{:<30} {}", "Estimated total savings", total);
+        .map(|p| {
+            if result.headroom_pct.is_some() {
+                format!("{p:.1}%  (measured end-to-end)")
+            } else {
+                format!("{p:.1}%  (RTK CLI layer only — headroom adds more)")
+            }
+        })
+        .unwrap_or_else(|| "— (no data available)".to_string());
+    println!("{:<30} {}", "Measured savings", total);
 
     Ok(())
 }

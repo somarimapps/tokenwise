@@ -2,7 +2,18 @@
 
 Cross-platform Rust CLI that installs, connects, and maintains the 9-layer token optimization stack for Claude Code and Hermes agent.
 
-**85–95% token reduction** on every session — automatically.
+## Measured savings
+
+| Layer | What it compresses | Measured |
+|-------|-------------------|---------|
+| RTK | Shell command output (git, ps, find…) | 22.9% avg on CLI tokens ([source](https://github.com/somarimapps/tokenwise)) |
+| Headroom proxy | API responses via compression middleware | Reports via `http://127.0.0.1:8788/stats` |
+| MarkItDown | Binary files (PDF/DOCX/images) → Markdown | ~60-80% file size reduction |
+| ClawMem + Engram | Eliminates re-explaining cross-session context | Immeasurable without baseline |
+
+Run `tokenwise stats` to see your real numbers.
+
+> RTK example (2,224 commands): **1.98M tokens saved** at 22.9% average. Your results depend on which shell commands Claude runs in your projects.
 
 ## What it does
 

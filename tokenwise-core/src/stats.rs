@@ -9,6 +9,10 @@ pub struct StatsResult {
     pub headroom_pct: Option<f64>,
     /// RTK: total CLI proxy invocations recorded, or None if RTK is not installed.
     pub rtk_calls: Option<u64>,
+    /// RTK: total tokens saved (lifetime), or None if RTK is not installed.
+    pub rtk_tokens_saved: Option<u64>,
+    /// RTK: average savings percentage across all recorded commands, or None if unavailable.
+    pub rtk_savings_pct: Option<f64>,
     /// ClawMem: total documents in the semantic vault, or None if unavailable.
     pub clawmem_docs: Option<u64>,
     /// Total estimated end-to-end savings across the stack, or None if no data.
@@ -24,17 +28,23 @@ impl StatsAggregator {
     /// Individual layer failures are silently mapped to `None` — the stack may be
     /// partially installed, and `tokenwise stats` should show `—` for missing layers.
     pub async fn collect() -> StatsResult {
-        let (headroom, rtk, clawmem) = tokio::join!(
+        let (headroom, rtk_data, clawmem) = tokio::join!(
             Self::headroom_savings(),
-            Self::rtk_call_count(),
+            Self::rtk_stats(),
             Self::clawmem_doc_count(),
         );
 
-        let total = Self::estimate_total(headroom, rtk, clawmem);
+        let (rtk_calls, rtk_tokens_saved, rtk_savings_pct) = rtk_data
+            .map(|(c, t, p)| (Some(c), Some(t), Some(p)))
+            .unwrap_or((None, None, None));
+
+        let total = Self::estimate_total(headroom, rtk_savings_pct);
 
         StatsResult {
             headroom_pct: headroom,
-            rtk_calls: rtk,
+            rtk_calls,
+            rtk_tokens_saved,
+            rtk_savings_pct,
             clawmem_docs: clawmem,
             total_estimated_savings_pct: total,
         }
@@ -64,19 +74,26 @@ impl StatsAggregator {
         stats.savings_pct
     }
 
-    /// Run `rtk gain --json` and parse the call count.
+    /// Run `rtk gain -f json` and parse commands, tokens saved, and savings %.
     ///
-    /// Returns `None` if RTK is not installed or the output cannot be parsed.
-    async fn rtk_call_count() -> Option<u64> {
+    /// Returns `Some((calls, tokens_saved, avg_savings_pct))` or `None` if RTK
+    /// is not installed or its output cannot be parsed.
+    async fn rtk_stats() -> Option<(u64, u64, f64)> {
         // ponytail: spawn_blocking because Command::output() is sync
         tokio::task::spawn_blocking(|| {
             #[derive(Deserialize)]
+            struct RtkSummary {
+                total_commands: Option<u64>,
+                total_saved: Option<u64>,
+                avg_savings_pct: Option<f64>,
+            }
+            #[derive(Deserialize)]
             struct RtkGain {
-                total_calls: Option<u64>,
+                summary: Option<RtkSummary>,
             }
 
             let output = Command::new("rtk")
-                .args(["gain", "--json"])
+                .args(["gain", "-f", "json"])
                 .output()
                 .ok()?;
 
@@ -85,7 +102,8 @@ impl StatsAggregator {
             }
 
             let parsed: RtkGain = serde_json::from_slice(&output.stdout).ok()?;
-            parsed.total_calls
+            let s = parsed.summary?;
+            Some((s.total_commands?, s.total_saved?, s.avg_savings_pct?))
         })
         .await
         .ok()
@@ -121,23 +139,10 @@ impl StatsAggregator {
 
     /// Estimate total savings across the stack.
     ///
-    /// When Headroom data is available, uses that as the primary signal.
-    /// Falls back to None when no layer has data.
-    fn estimate_total(
-        headroom: Option<f64>,
-        rtk: Option<u64>,
-        _clawmem: Option<u64>,
-    ) -> Option<f64> {
-        // If headroom is running, it's the most direct proxy for end-to-end savings.
-        if let Some(pct) = headroom {
-            return Some(pct);
-        }
-        // RTK alone can report savings via its gain command.
-        if rtk.is_some() {
-            // RTK-only: return a conservative estimate; real savings need headroom.
-            return None;
-        }
-        None
+    /// Priority: headroom proxy (end-to-end) > RTK measured savings (CLI layer only).
+    /// RTK is a real measured lower bound — not an estimate.
+    fn estimate_total(headroom: Option<f64>, rtk_savings_pct: Option<f64>) -> Option<f64> {
+        headroom.or(rtk_savings_pct)
     }
 }
 
@@ -146,7 +151,7 @@ mod tests {
     use super::*;
 
     /// test::stats::aggregates_rtk_json_output
-    /// Verify that StatsAggregator::rtk_call_count parses a JSON payload.
+    /// Verify that StatsAggregator::rtk_stats parses the `rtk gain -f json` payload.
     #[tokio::test]
     async fn aggregates_rtk_json_output() {
         // We can't guarantee `rtk` is installed in CI; this just verifies the
@@ -155,7 +160,16 @@ mod tests {
         // Any of these may be None (fresh install). Just verify the call doesn't panic.
         let _ = result.headroom_pct;
         let _ = result.rtk_calls;
+        let _ = result.rtk_tokens_saved;
+        let _ = result.rtk_savings_pct;
         let _ = result.clawmem_docs;
+        // Consistency: if rtk_savings_pct is Some, it must be in [0, 100].
+        if let Some(pct) = result.rtk_savings_pct {
+            assert!(
+                (0.0..=100.0).contains(&pct),
+                "RTK savings pct must be in [0, 100]: {pct}"
+            );
+        }
     }
 
     /// test::stats::handles_missing_headroom
@@ -183,12 +197,11 @@ mod tests {
         // that the struct always populates (no panic) and that None fields
         // propagate cleanly to estimate_total.
         let result = StatsAggregator::collect().await;
-        // total_estimated_savings_pct is None when headroom is None.
-        if result.headroom_pct.is_none() {
-            // Conservative: when headroom is absent, total should also be None.
+        // total_estimated_savings_pct is None only when both headroom and RTK are absent.
+        if result.headroom_pct.is_none() && result.rtk_savings_pct.is_none() {
             assert!(
                 result.total_estimated_savings_pct.is_none(),
-                "total must be None when headroom is None and rtk gives no data"
+                "total must be None when both headroom and RTK give no data"
             );
         }
     }

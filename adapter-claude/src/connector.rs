@@ -121,7 +121,7 @@ impl ClaudeConnector {
         let pre_hook = json!({
             "type": "command",
             "command": rtk_path,
-            "args": [],
+            "args": ["hook", "claude"],
             "marker": TOKENWISE_MARKER
         });
 
@@ -148,7 +148,7 @@ impl ClaudeConnector {
             .entry("PreToolUse")
             .or_insert_with(|| Value::Array(vec![]));
         if let Value::Array(arr) = pre_tool_use {
-            arr.push(json!({ "matcher": "", "hooks": [pre_hook] }));
+            arr.push(json!({ "matcher": "Bash", "hooks": [pre_hook] }));
         }
 
         // SessionStart

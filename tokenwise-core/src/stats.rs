@@ -53,10 +53,20 @@ impl StatsAggregator {
     /// Query Headroom proxy stats at `http://127.0.0.1:8788/stats`.
     ///
     /// Returns `None` if the proxy is not running or returns unexpected data.
+    /// Reports lifetime savings % derived from `persistent_savings.lifetime.*`.
     async fn headroom_savings() -> Option<f64> {
         #[derive(Deserialize)]
+        struct Lifetime {
+            tokens_saved: Option<u64>,
+            total_input_tokens: Option<u64>,
+        }
+        #[derive(Deserialize)]
+        struct PersistentSavings {
+            lifetime: Option<Lifetime>,
+        }
+        #[derive(Deserialize)]
         struct HeadroomStats {
-            savings_pct: Option<f64>,
+            persistent_savings: Option<PersistentSavings>,
         }
 
         let client = reqwest::Client::builder()
@@ -71,7 +81,13 @@ impl StatsAggregator {
             .ok()?;
 
         let stats: HeadroomStats = resp.json().await.ok()?;
-        stats.savings_pct
+        let lifetime = stats.persistent_savings?.lifetime?;
+        let saved = lifetime.tokens_saved? as f64;
+        let total = lifetime.total_input_tokens? as f64;
+        if total == 0.0 {
+            return None;
+        }
+        Some((saved / total) * 100.0)
     }
 
     /// Run `rtk gain -f json` and parse commands, tokens saved, and savings %.

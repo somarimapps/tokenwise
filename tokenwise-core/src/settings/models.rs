@@ -18,8 +18,9 @@ pub struct ClaudeSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hooks: Option<Value>,
 
-    /// Enabled marketplace plugin names (e.g. `["caveman", "ponytail"]`).
-    #[serde(default)]
+    /// Enabled marketplace plugins.
+    /// Claude Code uses either `["name"]` (array) or `{"name@scope": true}` (object).
+    #[serde(default, deserialize_with = "deserialize_plugins_tolerant")]
     pub enabled_plugins: Vec<String>,
 
     /// Permissions block (passed through opaquely).
@@ -133,6 +134,36 @@ where
             .filter_map(|v| match v {
                 Value::String(s) => Some(s),
                 other => other.as_str().map(String::from),
+            })
+            .collect()),
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// Deserialize `enabledPlugins` tolerantly: accept array of strings OR object
+/// with boolean values (the real Claude Code format: `{"plugin@scope": true}`).
+/// Keys with `false` values are excluded from the returned list.
+fn deserialize_plugins_tolerant<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let val = Value::deserialize(deserializer)?;
+    match val {
+        Value::Array(arr) => Ok(arr
+            .into_iter()
+            .filter_map(|v| match v {
+                Value::String(s) => Some(s),
+                other => other.as_str().map(String::from),
+            })
+            .collect()),
+        Value::Object(map) => Ok(map
+            .into_iter()
+            .filter_map(|(k, v)| {
+                if v.as_bool().unwrap_or(false) {
+                    Some(k)
+                } else {
+                    None
+                }
             })
             .collect()),
         _ => Ok(Vec::new()),

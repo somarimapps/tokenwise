@@ -379,8 +379,29 @@ impl Doctor {
         }
     }
 
-    /// Layer 9: MarkItDown MCP responds within 3s.
+    /// Layer 9: MarkItDown MCP installed and functional.
+    ///
+    /// Strategy (in order):
+    /// 1. If a "markitdown" entry exists in ~/.claude.json, check its command binary.
+    /// 2. Fallback: probe `python3 -c "import markitdown_mcp"` via configured binary.
     async fn check_markitdown_mcp(&self) -> CheckResult {
+        // Strategy 1: check the registered MCP command binary exists.
+        if let Ok(config) = ClaudeMcpConfig::read_or_default(&self.paths.claude_json) {
+            if let Some(entry) = config.mcp_servers.get("markitdown") {
+                if !entry.command.is_empty() {
+                    let cmd_path = std::path::Path::new(&entry.command);
+                    if cmd_path.is_absolute() && cmd_path.exists() {
+                        return CheckResult::pass(
+                            9,
+                            "markitdown-mcp",
+                            &format!("MarkItDown MCP registered, command found: {}", entry.command),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Strategy 2: fallback python3 import probe.
         let result = tokio::time::timeout(
             self.timeout,
             tokio::process::Command::new(&self.markitdown_bin)
@@ -428,7 +449,7 @@ impl Doctor {
             }
         };
 
-        if settings.enabled_plugins.iter().any(|p| p == "caveman") {
+        if settings.enabled_plugins.iter().any(|p| p == "caveman" || p.starts_with("caveman@")) {
             CheckResult::pass(10, "caveman", "caveman plugin active")
         } else {
             CheckResult::warn(

@@ -34,9 +34,10 @@ impl McpRegistry {
         // Read or create default
         let mut config = ClaudeMcpConfig::read_or_default(path)?;
 
-        // Merge: insert our servers, preserve others
+        // Merge: add missing servers only; never overwrite existing entries.
+        // This preserves user-customized commands (e.g. venv-specific python paths).
         for (name, server) in servers {
-            config.mcp_servers.insert(name.clone(), server.clone());
+            config.mcp_servers.entry(name.clone()).or_insert_with(|| server.clone());
         }
 
         // Ensure parent directory exists

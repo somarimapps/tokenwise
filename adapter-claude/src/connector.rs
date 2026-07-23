@@ -437,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn connect_writes_all_six_core_mcp_servers() {
+    fn connect_writes_all_five_core_mcp_servers() {
         let (base, claude_dir, claude_json, backup_dir) = setup("mcp_all_servers");
         let conn = make_connector(claude_dir, claude_json.clone(), backup_dir);
         conn.connect(false).unwrap();

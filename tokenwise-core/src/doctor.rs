@@ -139,10 +139,10 @@ impl Doctor {
     ///  1. Headroom proxy HTTP probe
     ///  2. RTK binary exists
     ///  3. Hooks executable
-    ///  4. 7 core MCPs registered in ~/.claude.json
+    ///  4. Core MCPs registered in ~/.claude.json
     ///  5. Rules files present
     ///  6. ClawMem MCP status probe
-    ///  7. Engram MCP registered
+    ///  7. Engram plugin in enabledPlugins
     ///  8. OS service unit file on disk
     ///  9. MarkItDown MCP probe
     /// 10. Caveman plugin in enabledPlugins
@@ -250,10 +250,10 @@ impl Doctor {
         }
     }
 
-    /// Layer 4: All 7 core MCP servers registered in `~/.claude.json`.
+    /// Layer 4: All core MCP servers registered in `~/.claude.json`.
     async fn check_mcps_registered(&self) -> CheckResult {
         match McpRegistry::all_registered_static(&self.paths.claude_json, CORE_MCP_SERVER_NAMES) {
-            Ok(true) => CheckResult::pass(4, "mcp-registered", "All 7 core MCP servers registered"),
+            Ok(true) => CheckResult::pass(4, "mcp-registered", &format!("All {} core MCP servers registered", CORE_MCP_SERVER_NAMES.len())),
             Ok(false) => {
                 let missing = missing_mcps(&self.paths.claude_json);
                 CheckResult::fail(
@@ -312,7 +312,7 @@ impl Doctor {
                 6,
                 "clawmem",
                 "clawmem binary not found",
-                Some("Install ClawMem: pip install clawmem-mcp"),
+                Some("Install ClawMem: bun add -g clawmem or npm install -g clawmem"),
             ),
             Err(_) => CheckResult::fail(
                 6,
@@ -323,27 +323,27 @@ impl Doctor {
         }
     }
 
-    /// Layer 7: Engram MCP is registered in `~/.claude.json`.
+    /// Layer 7: Engram plugin present in `enabledPlugins`.
+    ///
+    /// Engram is a Claude Code plugin (not an npm MCP server) — it is configured
+    /// via `enabledPlugins` in settings.json, not via `~/.claude.json`.
     async fn check_engram(&self) -> CheckResult {
-        let path = self.paths.claude_json.clone();
-        let result = tokio::time::timeout(
-            self.timeout,
-            async move {
-                McpRegistry::all_registered_static(&path, &["engram"])
-            },
-        )
-        .await;
+        let settings = match ClaudeSettings::read_or_default(&self.paths.settings_json) {
+            Ok(s) => s,
+            Err(_) => {
+                return CheckResult::warn(7, "engram", "Cannot read settings.json", None);
+            }
+        };
 
-        match result {
-            Ok(Ok(true)) => CheckResult::pass(7, "engram", "Engram MCP registered"),
-            Ok(Ok(false)) => CheckResult::fail(
+        if settings.enabled_plugins.iter().any(|p| p == "engram" || p.starts_with("engram@")) {
+            CheckResult::pass(7, "engram", "Engram plugin active")
+        } else {
+            CheckResult::warn(
                 7,
                 "engram",
-                "Engram MCP not registered in ~/.claude.json",
-                Some("run 'tokenwise connect claude' to register Engram"),
-            ),
-            Ok(Err(e)) => CheckResult::warn(7, "engram", &format!("Cannot verify Engram: {}", e), None),
-            Err(_) => CheckResult::fail(7, "engram", "Engram check timeout (>3s)", None),
+                "engram not in enabledPlugins",
+                Some("Add 'engram@engram' to enabledPlugins in ~/.claude/settings.json"),
+            )
         }
     }
 

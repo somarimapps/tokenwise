@@ -10,18 +10,19 @@ pub use exit_code::ExitCode;
 pub use output::{format_message, print_error, print_info, print_warn, Level};
 pub use platform::Platform;
 
-/// Names of the 6 core MCP servers that tokenwise manages.
+/// Names of the 5 core MCP servers that tokenwise manages.
 pub const CORE_MCP_SERVER_NAMES: &[&str] = &[
     "markitdown",
     "headroom",
     "clawmem",
-    "engram",
     "serena",
     "codebase-memory-mcp",
 ];
 
 /// Names of the optional MCP servers (registered on request).
-pub const OPTIONAL_MCP_SERVER_NAMES: &[&str] = &["odoo-customext", "shopify"];
+/// Note: user-specific servers (e.g. Odoo instances) should be added manually
+/// via `tokenwise connect claude --add-mcp <name>=<command>` — not hardcoded here.
+pub const OPTIONAL_MCP_SERVER_NAMES: &[&str] = &["shopify"];
 
 /// Names of the 6 required rules files in `~/.claude/rules/`.
 pub const REQUIRED_RULES_FILES: &[&str] = &[

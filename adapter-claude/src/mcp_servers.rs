@@ -27,19 +27,6 @@ pub fn core_mcp_servers() -> HashMap<String, McpServerConfig> {
         McpServerConfig::stdio("clawmem", vec!["mcp".to_string()]),
     );
 
-    // engram — structured persistent memory
-    map.insert(
-        "engram".to_string(),
-        McpServerConfig::stdio(
-            "npx",
-            vec![
-                "-y".to_string(),
-                "@anthropic/engram".to_string(),
-                "mcp".to_string(),
-            ],
-        ),
-    );
-
     // serena — code intelligence / LSP bridge (installed via uvx from GitHub)
     map.insert(
         "serena".to_string(),
@@ -68,15 +55,11 @@ pub fn core_mcp_servers() -> HashMap<String, McpServerConfig> {
     map
 }
 
-/// Build the optional MCP server configurations (Odoo, Shopify, etc.).
+/// Build the optional MCP server configurations.
 /// These are not auto-installed — they require explicit user consent.
+/// User-specific servers (e.g. private Odoo instances) must be added manually.
 pub fn optional_mcp_servers() -> HashMap<String, McpServerConfig> {
     let mut map = HashMap::new();
-
-    map.insert(
-        "odoo-customext".to_string(),
-        McpServerConfig::stdio("python3", vec!["-m".to_string(), "odoo_mcp".to_string()]),
-    );
 
     map.insert(
         "shopify".to_string(),
@@ -110,13 +93,13 @@ mod tests {
     }
 
     #[test]
-    fn core_servers_has_exactly_six_entries() {
-        assert_eq!(core_mcp_servers().len(), 6);
+    fn core_servers_has_exactly_five_entries() {
+        assert_eq!(core_mcp_servers().len(), 5);
     }
 
     #[test]
-    fn optional_servers_has_exactly_two_entries() {
-        assert_eq!(optional_mcp_servers().len(), 2);
+    fn optional_servers_has_exactly_one_entry() {
+        assert_eq!(optional_mcp_servers().len(), 1);
     }
 
     #[test]
